@@ -1,7 +1,10 @@
 // Package symbolic содержит конкретные реализации символьных выражений
 package symbolic
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // SymbolicExpression - базовый интерфейс для всех символьных выражений
 type SymbolicExpression interface {
@@ -101,28 +104,51 @@ type BinaryOperation struct {
 	Operator BinaryOperator
 }
 
-// TODO: Реализуйте следующие методы в рамках домашнего задания
-
 // NewBinaryOperation создаёт новую бинарную операцию
 func NewBinaryOperation(left, right SymbolicExpression, op BinaryOperator) *BinaryOperation {
-	// TODO: Реализовать
 	// Создать новую бинарную операцию и проверить совместимость типов
-	panic("не реализовано")
+	if left.Type() != IntType && right.Type() != IntType {
+		panic("left and right types don't match")
+	}
+	return &BinaryOperation{Left: left, Right: right, Operator: op}
 }
 
 // Type возвращает результирующий тип операции
 func (bo *BinaryOperation) Type() ExpressionType {
-	// TODO: Реализовать
 	// Определить результирующий тип на основе операции и типов операндов
 	// Например: int + int = int, int < int = bool
-	panic("не реализовано")
+	switch bo.Operator {
+	case ADD:
+		return IntType
+	case SUB:
+		return IntType
+	case MUL:
+		return IntType
+	case DIV:
+		return IntType
+	case MOD:
+		return IntType
+	case EQ:
+		return BoolType
+	case NE:
+		return BoolType
+	case LT:
+		return BoolType
+	case LE:
+		return BoolType
+	case GT:
+		return BoolType
+	case GE:
+		return BoolType
+	default:
+		panic("не реализовано")
+	}
 }
 
 // String возвращает строковое представление операции
 func (bo *BinaryOperation) String() string {
-	// TODO: Реализовать
 	// Формат: "(left operator right)"
-	panic("не реализовано")
+	return fmt.Sprintf("(%s %s %s)", bo.Left.String(), bo.Right.String(), bo.Operator.String())
 }
 
 // Accept реализует Visitor pattern
@@ -136,13 +162,33 @@ type LogicalOperation struct {
 	Operator LogicalOperator
 }
 
-// TODO: Реализуйте следующие методы в рамках домашнего задания
-
 // NewLogicalOperation создаёт новую логическую операцию
 func NewLogicalOperation(operands []SymbolicExpression, op LogicalOperator) *LogicalOperation {
-	// TODO: Реализовать
 	// Создать логическую операцию и проверить типы операндов
-	panic("не реализовано")
+	switch op {
+	case AND:
+		if len(operands) < 2 {
+			panic("incorrect number of arguments for AND")
+		}
+	case OR:
+		if len(operands) < 2 {
+			panic("incorrect number of arguments for OR")
+		}
+	case IMPLIES:
+		if len(operands) != 2 {
+			panic("incorrect number of arguments for IMPLIES")
+		}
+	case NOT:
+		if len(operands) != 1 {
+			panic("incorrect number of arguments for NOT")
+		}
+	}
+	for _, operand := range operands {
+		if operand.Type() != BoolType {
+			panic("not bool operand")
+		}
+	}
+	return &LogicalOperation{Operands: operands, Operator: op}
 }
 
 // Type возвращает тип логической операции (всегда bool)
@@ -152,11 +198,29 @@ func (lo *LogicalOperation) Type() ExpressionType {
 
 // String возвращает строковое представление логической операции
 func (lo *LogicalOperation) String() string {
-	// TODO: Реализовать
 	// Для NOT: "!operand"
 	// Для AND/OR: "(operand1 && operand2 && ...)"
 	// Для IMPLIES: "(operand1 => operand2)"
-	panic("не реализовано")
+	switch lo.Operator {
+	case AND:
+		ops := make([]string, len(lo.Operands))
+		for i, o := range lo.Operands {
+			ops[i] = o.String()
+		}
+		return "(" + strings.Join(ops, " "+lo.Operator.String()+" ") + ")"
+	case OR:
+		ops := make([]string, len(lo.Operands))
+		for i, o := range lo.Operands {
+			ops[i] = o.String()
+		}
+		return "(" + strings.Join(ops, " "+lo.Operator.String()+" ") + ")"
+	case NOT:
+		return fmt.Sprintf("%s%s", lo.Operator.String(), lo.Operands[0].String())
+	case IMPLIES:
+		return fmt.Sprintf("%s %s %s", lo.Operands[0].String(), lo.Operator.String(), lo.Operands[1].String())
+	default:
+		panic("не реализовано")
+	}
 }
 
 // Accept реализует Visitor pattern
