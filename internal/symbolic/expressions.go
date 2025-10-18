@@ -505,3 +505,19 @@ func (ce *ConditionalExpression) Type() ExpressionType {
 func (ce *ConditionalExpression) String() string {
 	return fmt.Sprintf("(%s ? %s : %s)", ce.Condition.String(), ce.ThenBranch.String(), ce.ElseBranch.String())
 }
+
+type Ref struct {
+	// TODO: Выбрать и написать внутреннее представление символьной ссылки
+}
+
+func (ref *Ref) Type() ExpressionType {
+	panic("не реализовано")
+}
+
+func (ref *Ref) String() string {
+	panic("не реализовано")
+}
+
+func (ref *Ref) Accept(visitor Visitor) interface{} {
+	panic("не реализовано")
+}
