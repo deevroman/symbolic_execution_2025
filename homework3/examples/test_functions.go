@@ -161,3 +161,14 @@ func Aliasing(foo1 *Foo, foo2 *Foo) int {
 	}
 	return 5
 }
+
+func testPathConstraintMutability(p Person) {
+	if p.Age != 18 {
+		p.Age = 18
+		if p.Age != 18 {
+			panic("Seems impossible")
+		} else {
+			println("Seems ok")
+		}
+	}
+}
