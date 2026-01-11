@@ -38,16 +38,16 @@ func main() {
 	fmt.Printf("Z3 выражение создано: %T\n", z3Expr)
 	solveXY(translator, z3Expr, x, y)
 
-	// Создаём более сложное выражение: (x > 0) && (y < 10)
+	// Создаём более сложное выражение: (x > 0) && (y < 10) && (y > 0) && ((x + y) == 5))
 	zero := NewIntConstant(0)
 	ten := NewIntConstant(10)
 
 	cond1 := NewBinaryOperation(x, zero, GT)
 	cond2 := NewBinaryOperation(y, ten, LT)
-	cond2_ := NewBinaryOperation(y, zero, GT)
-	cond3 := NewBinaryOperation(NewBinaryOperation(x, y, ADD), NewIntConstant(5), EQ)
+	cond3 := NewBinaryOperation(y, zero, GT)
+	cond4 := NewBinaryOperation(NewBinaryOperation(x, y, ADD), NewIntConstant(5), EQ)
 
-	andExpr := NewLogicalOperation([]SymbolicExpression{cond1, cond2, cond2_, cond3}, AND)
+	andExpr := NewLogicalOperation([]SymbolicExpression{cond1, cond2, cond3, cond4}, AND)
 
 	fmt.Printf("Сложное выражение: %s\n", andExpr.String())
 
