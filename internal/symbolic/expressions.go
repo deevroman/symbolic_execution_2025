@@ -59,7 +59,7 @@ func NewIntConstant(value int64) *IntConstant {
 
 // Type возвращает тип константы
 func (ic *IntConstant) Type() ExpressionType {
-	return IntType
+	return ExpressionType{ExprType: IntType}
 }
 
 // String возвращает строковое представление константы
@@ -84,7 +84,7 @@ func NewBoolConstant(value bool) *BoolConstant {
 
 // Type возвращает тип константы
 func (bc *BoolConstant) Type() ExpressionType {
-	return BoolType
+	return ExpressionType{ExprType: BoolType}
 }
 
 // String возвращает строковое представление константы
@@ -107,8 +107,11 @@ type BinaryOperation struct {
 // NewBinaryOperation создаёт новую бинарную операцию
 func NewBinaryOperation(left, right SymbolicExpression, op BinaryOperator) *BinaryOperation {
 	// Создать новую бинарную операцию и проверить совместимость типов
-	if left.Type() != IntType && right.Type() != IntType {
-		panic("left and right types don't match")
+	if left.Type().ExprType != IntType {
+		panic("left type is not Int")
+	}
+	if right.Type().ExprType != IntType {
+		panic("right is not Int")
 	}
 	return &BinaryOperation{Left: left, Right: right, Operator: op}
 }
@@ -119,27 +122,27 @@ func (bo *BinaryOperation) Type() ExpressionType {
 	// Например: int + int = int, int < int = bool
 	switch bo.Operator {
 	case ADD:
-		return IntType
+		return ExpressionType{ExprType: IntType}
 	case SUB:
-		return IntType
+		return ExpressionType{ExprType: IntType}
 	case MUL:
-		return IntType
+		return ExpressionType{ExprType: IntType}
 	case DIV:
-		return IntType
+		return ExpressionType{ExprType: IntType}
 	case MOD:
-		return IntType
+		return ExpressionType{ExprType: IntType}
 	case EQ:
-		return BoolType
+		return ExpressionType{ExprType: BoolType}
 	case NE:
-		return BoolType
+		return ExpressionType{ExprType: BoolType}
 	case LT:
-		return BoolType
+		return ExpressionType{ExprType: BoolType}
 	case LE:
-		return BoolType
+		return ExpressionType{ExprType: BoolType}
 	case GT:
-		return BoolType
+		return ExpressionType{ExprType: BoolType}
 	case GE:
-		return BoolType
+		return ExpressionType{ExprType: BoolType}
 	default:
 		panic("не реализовано")
 	}
@@ -148,7 +151,7 @@ func (bo *BinaryOperation) Type() ExpressionType {
 // String возвращает строковое представление операции
 func (bo *BinaryOperation) String() string {
 	// Формат: "(left operator right)"
-	return fmt.Sprintf("(%s %s %s)", bo.Left.String(), bo.Right.String(), bo.Operator.String())
+	return fmt.Sprintf("(%s %s %s)", bo.Left.String(), bo.Operator.String(), bo.Right.String())
 }
 
 // Accept реализует Visitor pattern
@@ -184,7 +187,7 @@ func NewLogicalOperation(operands []SymbolicExpression, op LogicalOperator) *Log
 		}
 	}
 	for _, operand := range operands {
-		if operand.Type() != BoolType {
+		if operand.Type().ExprType != BoolType {
 			panic("not bool operand")
 		}
 	}
@@ -193,7 +196,7 @@ func NewLogicalOperation(operands []SymbolicExpression, op LogicalOperator) *Log
 
 // Type возвращает тип логической операции (всегда bool)
 func (lo *LogicalOperation) Type() ExpressionType {
-	return BoolType
+	return ExpressionType{ExprType: BoolType}
 }
 
 // String возвращает строковое представление логической операции
@@ -304,8 +307,201 @@ func (op LogicalOperator) String() string {
 	}
 }
 
-// TODO: Добавьте дополнительные типы выражений по необходимости:
+type UnaryOperator int
+
+const (
+	UNARY_MINUS UnaryOperator = iota
+)
+
+type UnaryOperation struct {
+	Operand  SymbolicExpression
+	Operator UnaryOperator
+}
+
+func (uo *UnaryOperation) String() string {
+	return fmt.Sprintf("%s%s", uo.Operator.String(), uo.Operand.String())
+}
+
+func (uo *UnaryOperation) Accept(visitor Visitor) interface{} {
+	return visitor.VisitUnaryOperation(uo)
+}
+
 // - UnaryOperation (унарные операции: -x, !x)
-// - ArrayAccess (доступ к элементам массива: arr[index])
+func (uo UnaryOperator) String() string {
+	switch uo {
+	case UNARY_MINUS:
+		return "-"
+	default:
+		return "unknown"
+	}
+}
+
+func (uo *UnaryOperation) Type() ExpressionType {
+	switch uo.Operator {
+	case UNARY_MINUS:
+		return ExpressionType{ExprType: IntType}
+	default:
+		panic("не реализовано")
+	}
+}
+
+func NewUnaryOperation(operand SymbolicExpression, op UnaryOperator) *UnaryOperation {
+	if operand.Type().ExprType != IntType {
+		panic("operand type is not Int")
+	}
+	return &UnaryOperation{Operand: operand, Operator: op}
+}
+
+// SymbolicArray Symbolic array type
+type SymbolicArray struct {
+	Name     string
+	ElemType ExpressionType
+}
+
+func NewSymbolicArray(name string, elemType ExpressionType) *SymbolicArray {
+	return &SymbolicArray{name, elemType}
+}
+
+func (sa *SymbolicArray) Type() ExpressionType {
+	return ExpressionType{ExprType: ArrayType, Param: &sa.ElemType}
+}
+
+func (sa *SymbolicArray) String() string {
+	return fmt.Sprintf("%s[%s]", sa.Name, sa.ElemType)
+}
+
+func (sa *SymbolicArray) Accept(visitor Visitor) interface{} {
+	return visitor.VisitArray(sa)
+}
+
+// - ArraySelect (доступ к элементам массива: arr[index])
+type ArraySelect struct {
+	Array SymbolicExpression
+	Index SymbolicExpression
+}
+
+func NewArraySelect(arr SymbolicExpression, idx SymbolicExpression) *ArraySelect {
+	return &ArraySelect{Array: arr, Index: idx}
+}
+
+func (as *ArraySelect) Type() ExpressionType {
+	return *as.Array.Type().Param
+}
+
+func (as *ArraySelect) String() string {
+	return fmt.Sprintf("%s[%s]", as.Array.String(), as.Index.String())
+}
+
+func (as *ArraySelect) Accept(v Visitor) interface{} { return v.VisitArraySelect(as) }
+
+type ArrayStore struct {
+	Array SymbolicExpression
+	Index SymbolicExpression
+	Value SymbolicExpression
+}
+
+func NewArrayStore(arr SymbolicExpression, idx SymbolicExpression, v SymbolicExpression) *ArrayStore {
+	return &ArrayStore{Array: arr, Index: idx, Value: v}
+}
+
+func (as *ArrayStore) Type() ExpressionType {
+	return as.Array.Type()
+}
+
+func (as *ArrayStore) String() string {
+	return fmt.Sprintf("(%s[%s] = %s)", as.Array.String(), as.Index.String(), as.Value.String())
+}
+
+func (as *ArrayStore) Accept(v Visitor) interface{} { return v.VisitArrayStore(as) }
+
 // - FunctionCall (вызовы функций: f(x, y))
-// - ConditionalExpression (тернарный оператор: condition ? true_expr : false_expr)
+
+type Function struct {
+	Name       string
+	Args       []ExpressionType
+	ReturnType ExpressionType
+}
+
+func NewFunction(name string, args []ExpressionType, returnType ExpressionType) *Function {
+	return &Function{
+		Name:       name,
+		Args:       args,
+		ReturnType: returnType,
+	}
+}
+
+func (f *Function) Type() ExpressionType {
+	return f.ReturnType
+}
+
+func (f *Function) String() string {
+	return fmt.Sprintf("%s %s", f.Type(), f.Name)
+}
+
+func (f *Function) Accept(visitor Visitor) interface{} {
+	return visitor.VisitFunction(f)
+}
+
+type FunctionCall struct {
+	Func Function
+	Args []SymbolicExpression
+}
+
+func NewFunctionCall(fun Function, args []SymbolicExpression) *FunctionCall {
+	return &FunctionCall{Func: fun, Args: args}
+}
+
+func (fc *FunctionCall) Type() ExpressionType {
+	return fc.Func.Type()
+}
+
+// String возвращает строковое представление операции
+func (fc *FunctionCall) String() string {
+	args := make([]string, len(fc.Args))
+	for i := range fc.Args {
+		args[i] = fc.Args[i].String()
+	}
+	return fmt.Sprintf("%s(%s)", fc.Func.Name, strings.Join(args, ", "))
+}
+
+func (fc *FunctionCall) Accept(visitor Visitor) interface{} {
+	return visitor.VisitFunctionCall(fc)
+}
+
+// - ConditionalExpression тернарный оператор
+type ConditionalExpression struct {
+	Condition  SymbolicExpression
+	ThenBranch SymbolicExpression
+	ElseBranch SymbolicExpression
+}
+
+func (ce *ConditionalExpression) Accept(visitor Visitor) interface{} {
+	return visitor.VisitConditionalExpression(ce)
+}
+
+func NewConditionalExpression(
+	condition SymbolicExpression,
+	thenBranch SymbolicExpression,
+	elseBranch SymbolicExpression,
+) *ConditionalExpression {
+	if condition.Type().ExprType != BoolType {
+		return nil
+	}
+	if thenBranch.Type() != elseBranch.Type() {
+		return nil
+	}
+
+	return &ConditionalExpression{
+		Condition:  condition,
+		ThenBranch: thenBranch,
+		ElseBranch: elseBranch,
+	}
+}
+
+func (ce *ConditionalExpression) Type() ExpressionType {
+	return ce.ThenBranch.Type()
+}
+
+func (ce *ConditionalExpression) String() string {
+	return fmt.Sprintf("(%s ? %s : %s)", ce.Condition.String(), ce.ThenBranch.String(), ce.ElseBranch.String())
+}

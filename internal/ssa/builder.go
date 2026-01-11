@@ -26,6 +26,19 @@ func NewBuilder() *Builder {
 // ParseAndBuildSSA парсит исходный код Go и создаёт SSA представление
 // Возвращает SSA программу и функцию по имени
 func (b *Builder) ParseAndBuildSSA(source string, funcName string) (*ssa.Function, error) {
+	ssaPkg, err2 := b.ParseAndBuildSSAPkg(source)
+	if err2 != nil {
+		return nil, err2
+	}
+
+	fn := ssaPkg.Func(funcName)
+	if fn == nil {
+		return nil, fmt.Errorf("func %q not found", funcName)
+	}
+	return fn, nil
+}
+
+func (b *Builder) ParseAndBuildSSAPkg(source string) (*ssa.Package, error) {
 	file, err := parser.ParseFile(b.fset, "main.go", source, parser.AllErrors)
 	if err != nil {
 		return nil, fmt.Errorf("parse error: %w", err)
@@ -45,10 +58,5 @@ func (b *Builder) ParseAndBuildSSA(source string, funcName string) (*ssa.Functio
 	prog := ssa.NewProgram(b.fset, 0)
 	ssaPkg := prog.CreatePackage(pkg, []*ast.File{file}, info, true)
 	prog.Build()
-
-	fn := ssaPkg.Func(funcName)
-	if fn == nil {
-		return nil, fmt.Errorf("func %q not found", funcName)
-	}
-	return fn, nil
+	return ssaPkg, nil
 }
