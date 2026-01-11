@@ -1,0 +1,27 @@
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+
+jobs:
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.24.1'
+
+      - name: hw1
+        working-directory: homework1
+        run: go run main.go && go test
+
+      - name: hw2
+        working-directory: homework2
+        run: go run main.go && go test

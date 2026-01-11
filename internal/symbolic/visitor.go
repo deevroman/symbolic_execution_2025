@@ -5,7 +5,13 @@ type Visitor interface {
 	VisitVariable(expr *SymbolicVariable) interface{}
 	VisitIntConstant(expr *IntConstant) interface{}
 	VisitBoolConstant(expr *BoolConstant) interface{}
+	VisitUnaryOperation(expr *UnaryOperation) interface{}
 	VisitBinaryOperation(expr *BinaryOperation) interface{}
 	VisitLogicalOperation(expr *LogicalOperation) interface{}
-	// TODO: Добавьте методы для других типов выражений по мере необходимости
+	VisitConditionalExpression(expr *ConditionalExpression) interface{}
+	VisitFunction(expr *Function) interface{}
+	VisitFunctionCall(expr *FunctionCall) interface{}
+	VisitArray(expr *SymbolicArray) interface{}
+	VisitArraySelect(expr *ArraySelect) interface{}
+	VisitArrayStore(expr *ArrayStore) interface{}
 }

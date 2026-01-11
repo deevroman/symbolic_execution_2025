@@ -80,7 +80,7 @@ func main() {
 
 	// Путь 1: a > 5 && b = a * 2
 	solver2.Push()
-	solver2.Assert(a.GT(five))        // a > 5
+	solver2.Assert(a.SGT(five))       // a > 5
 	solver2.Assert(b.Eq(a.Mul(two2))) // b = a * 2
 
 	sat1, _ := solver2.IsSatisfiable()
@@ -95,7 +95,7 @@ func main() {
 
 	// Путь 2: a <= 5 && b = a + 10
 	solver2.Push()
-	solver2.Assert(a.LE(five))        // a <= 5
+	solver2.Assert(a.SLE(five))       // a <= 5
 	solver2.Assert(b.Eq(a.Add(ten2))) // b = a + 10
 
 	sat2, _ := solver2.IsSatisfiable()

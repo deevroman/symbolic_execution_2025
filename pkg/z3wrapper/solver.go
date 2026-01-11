@@ -4,8 +4,8 @@ package z3wrapper
 
 import (
 	"fmt"
+
 	"github.com/ebukreev/go-z3/z3"
-	"strconv"
 )
 
 // Solver представляет обёртку над Z3 solver
@@ -64,8 +64,8 @@ func (s *Solver) Pop() {
 }
 
 // CreateIntVar создаёт целочисленную переменную
-func (s *Solver) CreateIntVar(name string) z3.Int {
-	return s.ctx.IntConst(name)
+func (s *Solver) CreateIntVar(name string) z3.BV {
+	return s.ctx.BVConst(name, 32)
 }
 
 // CreateBoolVar создаёт булеву переменную
@@ -74,8 +74,8 @@ func (s *Solver) CreateBoolVar(name string) z3.Bool {
 }
 
 // CreateIntLit создаёт целочисленную константу
-func (s *Solver) CreateIntLit(value int64) z3.Int {
-	return s.ctx.FromInt(value, s.ctx.IntSort()).(z3.Int)
+func (s *Solver) CreateIntLit(value int64) z3.BV {
+	return s.ctx.FromInt(value, s.ctx.BVSort(32)).(z3.BV)
 }
 
 // IsSatisfiable проверяет, выполнимы ли текущие ограничения
@@ -84,17 +84,15 @@ func (s *Solver) IsSatisfiable() (bool, error) {
 }
 
 // GetIntValue получает значение целочисленной переменной из модели
-func (s *Solver) GetIntValue(model *z3.Model, variable z3.Int) (int64, error) {
+func (s *Solver) GetIntValue(model *z3.Model, variable z3.BV) (int64, error) {
 	value := model.Eval(variable, false)
 	if value == nil {
 		return 0, fmt.Errorf("variable not found in model")
 	}
 
-	// Конвертируем в строку и затем в int64
-	str := value.String()
-	result, err := strconv.ParseInt(str, 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("failed to parse integer value: %v", err)
+	result, _, ok := value.(z3.BV).AsInt64()
+	if !ok {
+		return 0, fmt.Errorf("failed to parse integer value")
 	}
 
 	return result, nil
