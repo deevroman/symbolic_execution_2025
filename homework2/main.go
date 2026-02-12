@@ -14,8 +14,8 @@ func main() {
 	fmt.Println("=== Symbolic Expressions Demo ===")
 
 	// Создаём простые символьные выражения
-	x := NewSymbolicVariable("x", ExpressionType{ExprType: IntType})
-	y := NewSymbolicVariable("y", ExpressionType{ExprType: IntType})
+	x := NewSymbolicVariable("x", IntExpr())
+	y := NewSymbolicVariable("y", IntExpr())
 	five := NewIntConstant(5)
 
 	// Создаём выражение: x + y > 5

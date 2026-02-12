@@ -5,6 +5,8 @@ type Visitor interface {
 	VisitVariable(expr *SymbolicVariable) interface{}
 	VisitIntConstant(expr *IntConstant) interface{}
 	VisitBoolConstant(expr *BoolConstant) interface{}
+	VisitFloatConstant(expr *FloatConstant) interface{}
+	VisitStringConstant(expr *StringConstant) interface{}
 	VisitUnaryOperation(expr *UnaryOperation) interface{}
 	VisitBinaryOperation(expr *BinaryOperation) interface{}
 	VisitLogicalOperation(expr *LogicalOperation) interface{}
@@ -12,6 +14,5 @@ type Visitor interface {
 	VisitFunction(expr *Function) interface{}
 	VisitFunctionCall(expr *FunctionCall) interface{}
 	VisitArray(expr *SymbolicArray) interface{}
-	VisitArraySelect(expr *ArraySelect) interface{}
-	VisitArrayStore(expr *ArrayStore) interface{}
+	VisitRef(expr *Ref) interface{}
 }

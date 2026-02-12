@@ -25,3 +25,7 @@ jobs:
       - name: hw2
         working-directory: homework2
         run: go run main.go && go test
+
+      - name: hw3
+        working-directory: homework3
+        run: go run main.go && go test

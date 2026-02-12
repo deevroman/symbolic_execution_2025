@@ -97,6 +97,56 @@ func (bc *BoolConstant) Accept(visitor Visitor) interface{} {
 	return visitor.VisitBoolConstant(bc)
 }
 
+// StringConstant представляет строковую константу
+type StringConstant struct {
+	Value string
+}
+
+// NewStringConstant создаёт новую строковую константу
+func NewStringConstant(value string) *StringConstant {
+	return &StringConstant{Value: value}
+}
+
+// Type возвращает тип константы
+func (sc *StringConstant) Type() ExpressionType {
+	return ExpressionType{ExprType: StringType}
+}
+
+// String возвращает строковое представление константы
+func (sc *StringConstant) String() string {
+	return fmt.Sprintf("%q", sc.Value)
+}
+
+// Accept реализует Visitor pattern
+func (sc *StringConstant) Accept(visitor Visitor) interface{} {
+	return visitor.VisitStringConstant(sc)
+}
+
+// FloatConstant представляет константу с плавающей точкой
+type FloatConstant struct {
+	Value float64
+}
+
+// NewFloatConstant создаёт новую константу с плавающей точкой
+func NewFloatConstant(value float64) *FloatConstant {
+	return &FloatConstant{Value: value}
+}
+
+// Type возвращает тип константы
+func (fc *FloatConstant) Type() ExpressionType {
+	return ExpressionType{ExprType: FloatType}
+}
+
+// String возвращает строковое представление константы
+func (fc *FloatConstant) String() string {
+	return fmt.Sprintf("%g", fc.Value)
+}
+
+// Accept реализует Visitor pattern
+func (fc *FloatConstant) Accept(visitor Visitor) interface{} {
+	return visitor.VisitFloatConstant(fc)
+}
+
 // BinaryOperation представляет бинарную операцию
 type BinaryOperation struct {
 	Left     SymbolicExpression
@@ -107,11 +157,8 @@ type BinaryOperation struct {
 // NewBinaryOperation создаёт новую бинарную операцию
 func NewBinaryOperation(left, right SymbolicExpression, op BinaryOperator) *BinaryOperation {
 	// Создать новую бинарную операцию и проверить совместимость типов
-	if left.Type().ExprType != IntType {
-		panic("left type is not Int")
-	}
-	if right.Type().ExprType != IntType {
-		panic("right is not Int")
+	if left.Type().ExprType != right.Type().ExprType {
+		panic("left and right types do not match")
 	}
 	return &BinaryOperation{Left: left, Right: right, Operator: op}
 }
@@ -122,27 +169,27 @@ func (bo *BinaryOperation) Type() ExpressionType {
 	// Например: int + int = int, int < int = bool
 	switch bo.Operator {
 	case ADD:
-		return ExpressionType{ExprType: IntType}
+		return IntExpr()
 	case SUB:
-		return ExpressionType{ExprType: IntType}
+		return IntExpr()
 	case MUL:
-		return ExpressionType{ExprType: IntType}
+		return IntExpr()
 	case DIV:
-		return ExpressionType{ExprType: IntType}
+		return IntExpr()
 	case MOD:
-		return ExpressionType{ExprType: IntType}
+		return IntExpr()
 	case EQ:
-		return ExpressionType{ExprType: BoolType}
+		return BoolExpr()
 	case NE:
-		return ExpressionType{ExprType: BoolType}
+		return BoolExpr()
 	case LT:
-		return ExpressionType{ExprType: BoolType}
+		return BoolExpr()
 	case LE:
-		return ExpressionType{ExprType: BoolType}
+		return BoolExpr()
 	case GT:
-		return ExpressionType{ExprType: BoolType}
+		return BoolExpr()
 	case GE:
-		return ExpressionType{ExprType: BoolType}
+		return BoolExpr()
 	default:
 		panic("не реализовано")
 	}
@@ -196,7 +243,7 @@ func NewLogicalOperation(operands []SymbolicExpression, op LogicalOperator) *Log
 
 // Type возвращает тип логической операции (всегда bool)
 func (lo *LogicalOperation) Type() ExpressionType {
-	return ExpressionType{ExprType: BoolType}
+	return BoolExpr()
 }
 
 // String возвращает строковое представление логической операции
@@ -339,7 +386,7 @@ func (uo UnaryOperator) String() string {
 func (uo *UnaryOperation) Type() ExpressionType {
 	switch uo.Operator {
 	case UNARY_MINUS:
-		return ExpressionType{ExprType: IntType}
+		return IntExpr()
 	default:
 		panic("не реализовано")
 	}
@@ -354,65 +401,49 @@ func NewUnaryOperation(operand SymbolicExpression, op UnaryOperator) *UnaryOpera
 
 // SymbolicArray Symbolic array type
 type SymbolicArray struct {
-	Name     string
-	ElemType ExpressionType
+	Name       string
+	ElemType   ExpressionType
+	Operations []ArrayOperation
 }
 
 func NewSymbolicArray(name string, elemType ExpressionType) *SymbolicArray {
-	return &SymbolicArray{name, elemType}
+	return &SymbolicArray{name, elemType, make([]ArrayOperation, 0)}
 }
 
-func (sa *SymbolicArray) Type() ExpressionType {
-	return ExpressionType{ExprType: ArrayType, Param: &sa.ElemType}
+func (a *SymbolicArray) Type() ExpressionType {
+	return ExpressionType{ExprType: ArrayType, Param: &a.ElemType}
 }
 
-func (sa *SymbolicArray) String() string {
-	return fmt.Sprintf("%s[%s]", sa.Name, sa.ElemType)
+func (a *SymbolicArray) String() string {
+	return fmt.Sprintf("%s[%s]", a.Name, a.ElemType)
 }
 
-func (sa *SymbolicArray) Accept(visitor Visitor) interface{} {
-	return visitor.VisitArray(sa)
+func (a *SymbolicArray) Accept(visitor Visitor) interface{} {
+	return visitor.VisitArray(a)
 }
 
-// - ArraySelect (доступ к элементам массива: arr[index])
-type ArraySelect struct {
-	Array SymbolicExpression
-	Index SymbolicExpression
+type ArrayOperation struct {
+	IsStore bool
+	Index   SymbolicExpression
+	Value   SymbolicExpression
 }
 
-func NewArraySelect(arr SymbolicExpression, idx SymbolicExpression) *ArraySelect {
-	return &ArraySelect{Array: arr, Index: idx}
+func (a *SymbolicArray) Select(index SymbolicExpression) SymbolicExpression {
+	op := ArrayOperation{
+		IsStore: false,
+		Index:   index,
+		Value: NewSymbolicVariable(
+			fmt.Sprintf("%s_select%d", a.Name, len(a.Operations)),
+			a.ElemType,
+		),
+	}
+	a.Operations = append(a.Operations, op)
+	return op.Value
 }
 
-func (as *ArraySelect) Type() ExpressionType {
-	return *as.Array.Type().Param
+func (a *SymbolicArray) Store(idx, val SymbolicExpression) {
+	a.Operations = append(a.Operations, ArrayOperation{IsStore: true, Index: idx, Value: val})
 }
-
-func (as *ArraySelect) String() string {
-	return fmt.Sprintf("%s[%s]", as.Array.String(), as.Index.String())
-}
-
-func (as *ArraySelect) Accept(v Visitor) interface{} { return v.VisitArraySelect(as) }
-
-type ArrayStore struct {
-	Array SymbolicExpression
-	Index SymbolicExpression
-	Value SymbolicExpression
-}
-
-func NewArrayStore(arr SymbolicExpression, idx SymbolicExpression, v SymbolicExpression) *ArrayStore {
-	return &ArrayStore{Array: arr, Index: idx, Value: v}
-}
-
-func (as *ArrayStore) Type() ExpressionType {
-	return as.Array.Type()
-}
-
-func (as *ArrayStore) String() string {
-	return fmt.Sprintf("(%s[%s] = %s)", as.Array.String(), as.Index.String(), as.Value.String())
-}
-
-func (as *ArrayStore) Accept(v Visitor) interface{} { return v.VisitArrayStore(as) }
 
 // - FunctionCall (вызовы функций: f(x, y))
 
@@ -507,17 +538,39 @@ func (ce *ConditionalExpression) String() string {
 }
 
 type Ref struct {
-	// TODO: Выбрать и написать внутреннее представление символьной ссылки
+	Id      SymbolicExpression
+	RefType ExpressionType
+}
+
+func NewRef(refId Id, refType ExpressionType) *Ref {
+	return &Ref{
+		Id:      NewSymbolicVariable(fmt.Sprintf("_ref_%d", refId), IntExpr()),
+		RefType: refType,
+	}
+}
+
+func NewRefFromExpr(ref SymbolicExpression, refType ExpressionType) *Ref {
+	return &Ref{
+		Id:      ref,
+		RefType: refType,
+	}
+}
+
+func NewStructRef(refId Id, structTypeName string) *Ref {
+	return &Ref{
+		Id:      NewSymbolicVariable(fmt.Sprintf("_ref_%d", refId), IntExpr()),
+		RefType: ExpressionType{ExprType: StructType, Name: &structTypeName},
+	}
 }
 
 func (ref *Ref) Type() ExpressionType {
-	panic("не реализовано")
+	return ExpressionType{ExprType: RefType}
 }
 
 func (ref *Ref) String() string {
-	panic("не реализовано")
+	return fmt.Sprintf("&(%s)", ref.Id.String())
 }
 
 func (ref *Ref) Accept(visitor Visitor) interface{} {
-	panic("не реализовано")
+	return visitor.VisitRef(ref)
 }
