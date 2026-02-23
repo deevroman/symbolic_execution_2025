@@ -151,67 +151,96 @@ func (zt *Z3Translator) VisitBinaryOperation(expr *symbolic.BinaryOperation) int
 	// - Арифметические: left.Add(right), left.Sub(right), left.Mul(right), left.Div(right)
 	// - Сравнения: left.Eq(right), left.LT(right), left.LE(right), etc.
 	// - Приводите типы: left.(z3.BV), right.(z3.BV) для int операций
-	switch expr.Operator {
-	case symbolic.ADD:
-		l := expr.Left.Accept(zt).(z3.BV)
-		r := expr.Right.Accept(zt).(z3.BV)
-		return l.Add(r)
-	case symbolic.SUB:
-		l := expr.Left.Accept(zt).(z3.BV)
-		r := expr.Right.Accept(zt).(z3.BV)
-		return l.Sub(r)
-	case symbolic.MUL:
-		l := expr.Left.Accept(zt).(z3.BV)
-		r := expr.Right.Accept(zt).(z3.BV)
-		return l.Mul(r)
-	case symbolic.DIV:
-		l := expr.Left.Accept(zt).(z3.BV)
-		r := expr.Right.Accept(zt).(z3.BV)
-		return l.SDiv(r)
-	case symbolic.MOD:
-		l := expr.Left.Accept(zt).(z3.BV)
-		r := expr.Right.Accept(zt).(z3.BV)
-		return l.SMod(r)
-	case symbolic.EQ:
-		l := expr.Left.Accept(zt)
-		r := expr.Right.Accept(zt)
-		switch l := l.(type) {
-		case z3.BV:
-			return l.Eq(r.(z3.BV))
-		case z3.Bool:
-			return l.Eq(r.(z3.Bool))
+	l := expr.Left.Accept(zt)
+	r := expr.Right.Accept(zt)
+	switch l.(type) {
+	case z3.BV:
+		l := l.(z3.BV)
+		r := r.(z3.BV)
+		switch expr.Operator {
+		case symbolic.ADD:
+			return l.Add(r)
+		case symbolic.SUB:
+			return l.Sub(r)
+		case symbolic.MUL:
+			return l.Mul(r)
+		case symbolic.DIV:
+			return l.SDiv(r)
+		case symbolic.MOD:
+			return l.SMod(r)
+		case symbolic.EQ:
+			return l.Eq(r)
+		case symbolic.NE:
+			return l.NE(r)
+		case symbolic.LT:
+			return l.SLT(r)
+		case symbolic.LE:
+			return l.SLE(r)
+		case symbolic.GT:
+			return l.SGT(r)
+		case symbolic.GE:
+			return l.SGE(r)
+		case symbolic.AND:
+			return l.And(r)
+		case symbolic.OR:
+			return l.Or(r)
+		case symbolic.XOR:
+			return l.Xor(r)
+		case symbolic.SHL:
+			return l.Lsh(r)
+		case symbolic.SHR:
+			return l.SRsh(r)
+		case symbolic.AND_NOT:
+			return l.And(r.Not())
 		default:
 			panic("не реализовано")
 		}
-	case symbolic.NE:
-		l := expr.Left.Accept(zt)
-		r := expr.Right.Accept(zt)
-		switch l := l.(type) {
-		case z3.BV:
-			return l.NE(r.(z3.BV))
-		case z3.Bool:
-			return l.NE(r.(z3.Bool))
+	case z3.Float:
+		l := l.(z3.Float)
+		r := r.(z3.Float)
+		switch expr.Operator {
+		case symbolic.ADD:
+			return l.Add(r)
+		case symbolic.SUB:
+			return l.Sub(r)
+		case symbolic.MUL:
+			return l.Mul(r)
+		case symbolic.DIV:
+			return l.Div(r)
+		case symbolic.EQ:
+			return l.Eq(r)
+		case symbolic.NE:
+			return l.NE(r)
+		case symbolic.LT:
+			return l.LT(r)
+		case symbolic.LE:
+			return l.LE(r)
+		case symbolic.GT:
+			return l.GT(r)
+		case symbolic.GE:
+			return l.GE(r)
 		default:
 			panic("не реализовано")
 		}
-	case symbolic.LT:
-		l := expr.Left.Accept(zt).(z3.BV)
-		r := expr.Right.Accept(zt).(z3.BV)
-		return l.SLT(r)
-	case symbolic.LE:
-		l := expr.Left.Accept(zt).(z3.BV)
-		r := expr.Right.Accept(zt).(z3.BV)
-		return l.SLE(r)
-	case symbolic.GT:
-		l := expr.Left.Accept(zt).(z3.BV)
-		r := expr.Right.Accept(zt).(z3.BV)
-		return l.SGT(r)
-	case symbolic.GE:
-		l := expr.Left.Accept(zt).(z3.BV)
-		r := expr.Right.Accept(zt).(z3.BV)
-		return l.SGE(r)
+	case z3.Bool:
+		l := l.(z3.Bool)
+		r := r.(z3.Bool)
+		switch expr.Operator {
+		case symbolic.EQ:
+			return l.Eq(r)
+		case symbolic.NE:
+			return l.NE(r)
+		case symbolic.AND:
+			return l.And(r)
+		case symbolic.OR:
+			return l.Or(r)
+		case symbolic.IMPLIES:
+			return l.Implies(r)
+		default:
+			panic(fmt.Sprintf("не реализовано %v", expr.Operator))
+		}
 	default:
-		panic("не реализовано")
+		panic(fmt.Sprintf("не реализовано %v", expr.Operator))
 	}
 }
 
@@ -238,8 +267,6 @@ func (zt *Z3Translator) VisitLogicalOperation(expr *symbolic.LogicalOperation) i
 			res = res.Or(operand.Accept(zt).(z3.Bool))
 		}
 		return res
-	case symbolic.NOT:
-		return expr.Operands[0].Accept(zt).(z3.Bool).Not()
 	case symbolic.IMPLIES:
 		return expr.Operands[0].Accept(zt).(z3.Bool).Implies(expr.Operands[1].Accept(zt).(z3.Bool))
 	default:
@@ -263,7 +290,7 @@ func (zt *Z3Translator) makeSort(expr symbolic.ExpressionType) z3.Sort {
 	case symbolic.StringType:
 		return zt.ctx.UninterpretedSort("String")
 	case symbolic.FloatType:
-		return zt.ctx.RealSort()
+		return zt.ctx.FloatSort(11, 53)
 	case symbolic.ArrayType:
 		switch expr.Param.ExprType {
 		case symbolic.BoolType:
@@ -312,7 +339,7 @@ func (zt *Z3Translator) makeSortInArray(expr *symbolic.SymbolicArray) z3.Sort {
 	case symbolic.StringType:
 		return zt.ctx.UninterpretedSort("String")
 	case symbolic.FloatType:
-		return zt.ctx.RealSort()
+		return zt.ctx.FloatSort(11, 53)
 	case symbolic.StructType:
 		return zt.ctx.BVSort(32)
 	default:
@@ -380,8 +407,8 @@ func (zt *Z3Translator) visitStore(op symbolic.ArrayOperation, arr z3.Array, res
 		}
 		res = append(res, resT.Eq(selT))
 
-	case z3.Real:
-		selT, ok := sel.(z3.Real)
+	case z3.Float:
+		selT, ok := sel.(z3.Float)
 		if !ok {
 			panic(fmt.Sprintf("select type mismatch: res is Real, sel is %T", sel))
 		}
@@ -432,6 +459,10 @@ func (zt *Z3Translator) VisitUnaryOperation(expr *symbolic.UnaryOperation) inter
 		o := expr.Operand.Accept(zt).(z3.BV)
 		minusOne := symbolic.NewIntConstant(-1)
 		return o.Mul(minusOne.Accept(zt).(z3.BV))
+	case symbolic.INVERT:
+		return expr.Operand.Accept(zt).(z3.BV).Not()
+	case symbolic.NOT:
+		return expr.Operand.Accept(zt).(z3.Bool).Not() // todo
 	default:
 		panic("не реализовано")
 	}

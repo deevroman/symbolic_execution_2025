@@ -168,28 +168,23 @@ func (bo *BinaryOperation) Type() ExpressionType {
 	// Определить результирующий тип на основе операции и типов операндов
 	// Например: int + int = int, int < int = bool
 	switch bo.Operator {
-	case ADD:
-		return IntExpr()
-	case SUB:
-		return IntExpr()
-	case MUL:
-		return IntExpr()
-	case DIV:
-		return IntExpr()
-	case MOD:
-		return IntExpr()
-	case EQ:
+	case ADD, SUB, MUL, DIV, MOD:
+		if bo.Left.Type().ExprType == FloatType || bo.Right.Type().ExprType == FloatType {
+			return FloatExpr()
+		} else {
+			return IntExpr()
+		}
+	case EQ, NE, LT, LE, GT, GE:
 		return BoolExpr()
-	case NE:
-		return BoolExpr()
-	case LT:
-		return BoolExpr()
-	case LE:
-		return BoolExpr()
-	case GT:
-		return BoolExpr()
-	case GE:
-		return BoolExpr()
+	case AND, OR, XOR, SHL, SHR, AND_NOT, IMPLIES:
+		if bo.Left.Type().ExprType == IntType || bo.Right.Type().ExprType == IntType {
+			return IntExpr()
+		} else {
+			if bo.Operator == AND || bo.Operator == OR || bo.Operator == IMPLIES {
+				return BoolExpr()
+			}
+			panic("unsupported operator for bool type")
+		}
 	default:
 		panic("не реализовано")
 	}
@@ -209,11 +204,11 @@ func (bo *BinaryOperation) Accept(visitor Visitor) interface{} {
 // LogicalOperation представляет логическую операцию
 type LogicalOperation struct {
 	Operands []SymbolicExpression
-	Operator LogicalOperator
+	Operator BinaryOperator
 }
 
 // NewLogicalOperation создаёт новую логическую операцию
-func NewLogicalOperation(operands []SymbolicExpression, op LogicalOperator) *LogicalOperation {
+func NewLogicalOperation(operands []SymbolicExpression, op BinaryOperator) *LogicalOperation {
 	// Создать логическую операцию и проверить типы операндов
 	switch op {
 	case AND:
@@ -227,10 +222,6 @@ func NewLogicalOperation(operands []SymbolicExpression, op LogicalOperator) *Log
 	case IMPLIES:
 		if len(operands) != 2 {
 			panic("incorrect number of arguments for IMPLIES")
-		}
-	case NOT:
-		if len(operands) != 1 {
-			panic("incorrect number of arguments for NOT")
 		}
 	}
 	for _, operand := range operands {
@@ -264,8 +255,6 @@ func (lo *LogicalOperation) String() string {
 			ops[i] = o.String()
 		}
 		return "(" + strings.Join(ops, " "+lo.Operator.String()+" ") + ")"
-	case NOT:
-		return fmt.Sprintf("%s%s", lo.Operator.String(), lo.Operands[0].String())
 	case IMPLIES:
 		return fmt.Sprintf("%s %s %s", lo.Operands[0].String(), lo.Operator.String(), lo.Operands[1].String())
 	default:
@@ -296,6 +285,14 @@ const (
 	LE // меньше или равно
 	GT // больше
 	GE // больше или равно
+
+	AND
+	OR
+	XOR
+	SHL
+	SHR
+	AND_NOT
+	IMPLIES
 )
 
 // String возвращает строковое представление оператора
@@ -323,30 +320,10 @@ func (op BinaryOperator) String() string {
 		return ">"
 	case GE:
 		return ">="
-	default:
-		return "unknown"
-	}
-}
-
-// Логические операторы
-type LogicalOperator int
-
-const (
-	AND LogicalOperator = iota
-	OR
-	NOT
-	IMPLIES
-)
-
-// String возвращает строковое представление логического оператора
-func (op LogicalOperator) String() string {
-	switch op {
 	case AND:
 		return "&&"
 	case OR:
 		return "||"
-	case NOT:
-		return "!"
 	case IMPLIES:
 		return "=>"
 	default:
@@ -358,6 +335,8 @@ type UnaryOperator int
 
 const (
 	UNARY_MINUS UnaryOperator = iota
+	INVERT
+	NOT
 )
 
 type UnaryOperation struct {
@@ -378,6 +357,10 @@ func (uo UnaryOperator) String() string {
 	switch uo {
 	case UNARY_MINUS:
 		return "-"
+	case INVERT:
+		return "^"
+	case NOT:
+		return "!"
 	default:
 		return "unknown"
 	}
@@ -385,16 +368,21 @@ func (uo UnaryOperator) String() string {
 
 func (uo *UnaryOperation) Type() ExpressionType {
 	switch uo.Operator {
-	case UNARY_MINUS:
+	case UNARY_MINUS, INVERT:
 		return IntExpr()
+	case NOT:
+		return BoolExpr()
 	default:
 		panic("не реализовано")
 	}
 }
 
 func NewUnaryOperation(operand SymbolicExpression, op UnaryOperator) *UnaryOperation {
-	if operand.Type().ExprType != IntType {
+	if (op == UNARY_MINUS || op == INVERT) && operand.Type().ExprType != IntType {
 		panic("operand type is not Int")
+	}
+	if op == NOT && operand.Type().ExprType != BoolType {
+		panic("operand type is not Bool")
 	}
 	return &UnaryOperation{Operand: operand, Operator: op}
 }
@@ -415,7 +403,15 @@ func (a *SymbolicArray) Type() ExpressionType {
 }
 
 func (a *SymbolicArray) String() string {
-	return fmt.Sprintf("%s[%s]", a.Name, a.ElemType)
+	res := fmt.Sprintf("%s[%s]", a.Name, a.ElemType)
+	for _, op := range a.Operations {
+		if op.IsStore {
+			res += "[" + op.Index.String() + "<=" + op.Value.String() + ")"
+		} else {
+			res += "[" + op.Index.String() + "]~>" + op.Value.String() + ")"
+		}
+	}
+	return res
 }
 
 func (a *SymbolicArray) Accept(visitor Visitor) interface{} {

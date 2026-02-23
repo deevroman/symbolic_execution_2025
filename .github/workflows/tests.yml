@@ -29,3 +29,7 @@ jobs:
       - name: hw3
         working-directory: homework3
         run: go run main.go && go test
+
+      - name: hw4
+        working-directory: homework4
+        run: timeout 10 go run main.go && timeout 10 go test
