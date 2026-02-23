@@ -34,8 +34,26 @@ func BoolExpr() ExpressionType {
 	return ExpressionType{ExprType: BoolType}
 }
 
+func FloatExpr() ExpressionType {
+	return ExpressionType{ExprType: FloatType}
+}
+
+func StringExpr() ExpressionType {
+	return ExpressionType{ExprType: StringType}
+}
+
 func ArrayExpr(param ExpressionType) ExpressionType {
 	return ExpressionType{ExprType: ArrayType, Param: &param}
+}
+
+func StructExpr(structName string, fields []ExpressionType) ExpressionType {
+	return ExpressionType{
+		ExprType:   StructType,
+		Param:      nil,
+		Name:       &structName,
+		Fields:     &fields,
+		FieldIndex: nil,
+	}
 }
 
 func (g ExpressionType) String() string {

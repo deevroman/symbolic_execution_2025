@@ -2,6 +2,7 @@ package memory
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 	. "symbolic-execution-course/internal/symbolic"
 )
@@ -14,6 +15,9 @@ type Memory interface {
 
 	FieldRef(ref *Ref, fieldIndex int) *Ref
 	ArrayElemRef(ref *Ref, elemIndex SymbolicExpression) *Ref
+
+	Clone() Memory
+	GetAliasingConstraints() []SymbolicExpression
 }
 
 type SymbolicMemory struct {
@@ -197,4 +201,87 @@ func (mem *SymbolicMemory) GetAliasingConstraints() []SymbolicExpression {
 		}
 	}
 	return append(ops, res...)
+}
+
+func (mem *SymbolicMemory) Clone() Memory {
+	return deepCopy(reflect.ValueOf(mem), make(map[uintptr]reflect.Value)).Interface().(Memory)
+}
+
+func deepCopy(v reflect.Value, pointers map[uintptr]reflect.Value) reflect.Value {
+	switch v.Kind() {
+	case reflect.Pointer:
+		return copyPointer(v, pointers)
+	case reflect.Interface:
+		return copyInterface(v, pointers)
+	case reflect.Struct:
+		return copyStruct(v, pointers)
+	case reflect.Map:
+		return copyMap(v, pointers)
+	case reflect.Slice:
+		return copySlice(v, pointers)
+	default:
+		return v
+	}
+}
+
+func copyMap(v reflect.Value, pointers map[uintptr]reflect.Value) reflect.Value {
+	if v.IsNil() {
+		return reflect.Zero(v.Type())
+	}
+	nv := reflect.MakeMapWithSize(v.Type(), v.Len())
+	iter := v.MapRange()
+	for iter.Next() {
+		k := deepCopy(iter.Key(), pointers)
+		val := deepCopy(iter.Value(), pointers)
+		nv.SetMapIndex(k, val)
+	}
+	return nv
+}
+
+func copySlice(v reflect.Value, pointers map[uintptr]reflect.Value) reflect.Value {
+	if v.IsNil() {
+		return reflect.Zero(v.Type())
+	}
+	nv := reflect.MakeSlice(v.Type(), v.Len(), v.Cap())
+	for i := 0; i < v.Len(); i++ {
+		nv.Index(i).Set(deepCopy(v.Index(i), pointers))
+	}
+	return nv
+}
+
+func copyStruct(v reflect.Value, pointers map[uintptr]reflect.Value) reflect.Value {
+	nv := reflect.New(v.Type()).Elem()
+	for i := 0; i < v.NumField(); i++ {
+		sf := v.Field(i)
+		cf := deepCopy(sf, pointers)
+		if nv.Field(i).CanSet() {
+			nv.Field(i).Set(cf)
+		} else {
+			panic("not implemented")
+		}
+	}
+	return nv
+}
+
+func copyInterface(v reflect.Value, pointers map[uintptr]reflect.Value) reflect.Value {
+	if v.IsNil() {
+		return reflect.Zero(v.Type())
+	}
+	ev := deepCopy(v.Elem(), pointers)
+	nv := reflect.New(v.Type()).Elem()
+	nv.Set(ev)
+	return nv
+}
+
+func copyPointer(v reflect.Value, pointers map[uintptr]reflect.Value) reflect.Value {
+	if v.IsNil() {
+		return reflect.Zero(v.Type())
+	}
+	if got, ok := pointers[v.Pointer()]; ok {
+		return got
+	}
+	nv := reflect.New(v.Elem().Type())
+	pointers[v.Pointer()] = nv
+	nv.Elem().Set(deepCopy(v.Elem(), pointers))
+	return nv
 }
