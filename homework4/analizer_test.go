@@ -33,7 +33,7 @@ func readSourceFile(t *testing.T, filepath string) string {
 
 func run(t *testing.T, functionName string) {
 	source := readSourceFile(t, "examples/test_functions.go")
-	ssaPkg, err2 := NewBuilder().ParseAndBuildSSAPkg(source)
+	ssaPkg, err2 := NewBuilder().ParseAndBuildSSAPkg([]string{source})
 	if err2 != nil {
 		panic(err2)
 	}
@@ -43,13 +43,13 @@ func run(t *testing.T, functionName string) {
 		StatesQueue:  make(PriorityQueue, 0),
 		PathSelector: &RandomPathSelector{},
 		Results:      make([]Interpreter, 0),
-		Z3Translator: translator.NewZ3Translator(),
 	}
 	result, err := analyser.Analyse(functionName)
 	if err != nil {
 		t.Fatalf("Analysis failed: %v", err)
 	}
 	for _, interpreter := range result {
+		analyser.Z3Translator = translator.NewZ3Translator()
 		fmt.Print("PathCondition:")
 		fmt.Println(interpreter.PathCondition)
 		analyser.Z3Translator.Assert(interpreter.PathCondition)

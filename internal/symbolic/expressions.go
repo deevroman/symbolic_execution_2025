@@ -147,6 +147,30 @@ func (fc *FloatConstant) Accept(visitor Visitor) interface{} {
 	return visitor.VisitFloatConstant(fc)
 }
 
+// NilConstant представляет константу с плавающей точкой
+type NilConstant struct {
+}
+
+// NewNilConstant создаёт новую константу nil
+func NewNilConstant() *NilConstant {
+	return &NilConstant{}
+}
+
+// Type возвращает тип константы
+func (nc *NilConstant) Type() ExpressionType {
+	return ExpressionType{ExprType: NilType}
+}
+
+// String возвращает строковое представление константы
+func (nc *NilConstant) String() string {
+	return "nil"
+}
+
+// Accept реализует Visitor pattern
+func (nc *NilConstant) Accept(visitor Visitor) interface{} {
+	panic("not implemented")
+}
+
 // BinaryOperation представляет бинарную операцию
 type BinaryOperation struct {
 	Left     SymbolicExpression
@@ -158,7 +182,14 @@ type BinaryOperation struct {
 func NewBinaryOperation(left, right SymbolicExpression, op BinaryOperator) *BinaryOperation {
 	// Создать новую бинарную операцию и проверить совместимость типов
 	if left.Type().ExprType != right.Type().ExprType {
+		if left.Type().ExprType == NilType {
+			return &BinaryOperation{Left: NewRef(0, right.Type()), Right: right, Operator: op}
+		}
+		if right.Type().ExprType == NilType {
+			return &BinaryOperation{Left: left, Right: NewRef(0, right.Type()), Operator: op}
+		}
 		panic("left and right types do not match")
+
 	}
 	return &BinaryOperation{Left: left, Right: right, Operator: op}
 }

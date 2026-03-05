@@ -20,6 +20,9 @@ type Analyser struct {
 
 func (analyser *Analyser) Analyse(functionName string) ([]Interpreter, error) {
 	fn := analyser.Package.Func(functionName)
+	if fn == nil {
+		return nil, fmt.Errorf("function %s not found in package", functionName)
+	}
 
 	q := make(PriorityQueue, 0)
 	heap.Init(&q)

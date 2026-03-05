@@ -12,7 +12,7 @@ func TestReadExamples(t *testing.T) {
 	bytes, err := os.ReadFile("examples/test_functions.go")
 	source := string(bytes)
 	builder := ssa.NewBuilder()
-	_, err = builder.ParseAndBuildSSAPkg(source)
+	_, err = builder.ParseAndBuildSSAPkg([]string{source})
 	if err != nil {
 		log.Fatalf("Ошибка построения SSA: %v", err)
 	}
@@ -32,7 +32,7 @@ func TestAllExamples(t *testing.T) {
 	bytes, err := os.ReadFile("examples/test_functions.go")
 	source := string(bytes)
 	builder := ssa.NewBuilder()
-	objects, err := builder.ParseAndBuildSSAPkg(source)
+	objects, err := builder.ParseAndBuildSSAPkg([]string{source})
 	if err != nil {
 		log.Fatalf("Ошибка построения SSA: %v", err)
 		return

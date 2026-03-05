@@ -21,7 +21,7 @@ func testFunction(x int) int {
 	}
 }
 `
-	ssaPkg, err2 := NewBuilder().ParseAndBuildSSAPkg(source)
+	ssaPkg, err2 := NewBuilder().ParseAndBuildSSAPkg([]string{source})
 	if err2 != nil {
 		panic(err2)
 	}

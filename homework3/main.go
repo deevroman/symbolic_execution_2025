@@ -23,7 +23,7 @@ func main() {
 
 	// Работа с массивом
 	fmt.Println("2. Работа с одномерным массивом:")
-	arr := mem.Allocate(ArrayExpr(IntExpr()), false)
+	arr := mem.Allocate(ArrayExpr(IntExpr(), 1), false)
 
 	for i := 0; i < 3; i++ {
 		elemAddr := mem.ArrayElemRef(arr, NewIntConstant(int64(i)))

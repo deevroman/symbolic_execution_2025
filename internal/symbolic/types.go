@@ -16,14 +16,16 @@ const (
 	ArrayType
 	RefType
 	StructType
+	NilType
 )
 
 type ExpressionType struct {
-	ExprType   PrimitiveType
-	Param      *ExpressionType
-	Name       *string
-	Fields     *[]ExpressionType
-	FieldIndex *int
+	ExprType        PrimitiveType
+	Param           *ExpressionType
+	Name            *string
+	Fields          *[]ExpressionType
+	FieldIndex      *int
+	ArrayDimensions *int
 }
 
 func IntExpr() ExpressionType {
@@ -42,8 +44,8 @@ func StringExpr() ExpressionType {
 	return ExpressionType{ExprType: StringType}
 }
 
-func ArrayExpr(param ExpressionType) ExpressionType {
-	return ExpressionType{ExprType: ArrayType, Param: &param}
+func ArrayExpr(param ExpressionType, dim int) ExpressionType {
+	return ExpressionType{ExprType: ArrayType, Param: &param, ArrayDimensions: &dim}
 }
 
 func StructExpr(structName string, fields []ExpressionType) ExpressionType {
