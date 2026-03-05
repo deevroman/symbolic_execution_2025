@@ -109,7 +109,11 @@ func (zt *Z3Translator) VisitVariable(expr *symbolic.SymbolicVariable) interface
 	if ok {
 		return v
 	}
-	v = zt.createZ3Variable(expr.Name, expr.ExprType)
+	if expr.Type().ExprType == symbolic.ArrayType {
+		v = zt.createZ3Variable(expr.Name, *expr.Type().Param)
+	} else {
+		v = zt.createZ3Variable(expr.Name, expr.ExprType)
+	}
 	zt.vars[expr.Name] = v
 	return v
 }
@@ -300,6 +304,8 @@ func (zt *Z3Translator) makeSort(expr symbolic.ExpressionType) z3.Sort {
 		default:
 			panic("не реализовано")
 		}
+	case symbolic.StructType, symbolic.RefType:
+		return zt.ctx.BVSort(32)
 	default:
 		panic("не реализовано")
 	}
@@ -342,6 +348,10 @@ func (zt *Z3Translator) makeSortInArray(expr *symbolic.SymbolicArray) z3.Sort {
 		return zt.ctx.FloatSort(11, 53)
 	case symbolic.StructType:
 		return zt.ctx.BVSort(32)
+	case symbolic.ArrayType:
+		return zt.ctx.BVSort(32)
+	case symbolic.RefType:
+		return zt.ctx.BVSort(32) // TODO
 	default:
 		panic(fmt.Sprintf("unsupported array elem type: %v", expr.ElemType.ExprType))
 	}
@@ -484,7 +494,7 @@ func (zt *Z3Translator) createZ3Variable(name string, exprType symbolic.Expressi
 		return zt.ctx.Const(name, zt.ctx.FloatSort(11, 53))
 	case symbolic.ArrayType:
 		return zt.ctx.Const(name, zt.ctx.ArraySort(zt.ctx.BVSort(32), zt.ctx.BVSort(32)))
-	case symbolic.StructType:
+	case symbolic.StructType, symbolic.RefType:
 		return zt.ctx.Const(name, zt.ctx.BVSort(32))
 	default:
 		panic("не реализовано")
@@ -509,6 +519,12 @@ func (zt *Z3Translator) castToZ3Type(value interface{}, targetType symbolic.Expr
 		return v, nil
 	case symbolic.ArrayType:
 		v, ok := value.(z3.Array)
+		if !ok {
+			return nil, fmt.Errorf("bad cast")
+		}
+		return v, nil
+	case symbolic.StructType, symbolic.RefType:
+		v, ok := value.(z3.BV)
 		if !ok {
 			return nil, fmt.Errorf("bad cast")
 		}

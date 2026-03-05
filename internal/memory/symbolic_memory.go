@@ -16,6 +16,8 @@ type Memory interface {
 	FieldRef(ref *Ref, fieldIndex int) *Ref
 	ArrayElemRef(ref *Ref, elemIndex SymbolicExpression) *Ref
 
+	GetArrayLength(ref *Ref) *uint
+	SetArrayLength(ref *Ref, length uint)
 	Clone() Memory
 	GetAliasingConstraints() []SymbolicExpression
 }
@@ -28,6 +30,8 @@ type SymbolicMemory struct {
 
 	Aliasable    []*Ref
 	NonAliasable []*Ref
+
+	ArrayLengths map[*Ref]uint
 }
 
 func NewSymbolicMemory() *SymbolicMemory {
@@ -46,7 +50,20 @@ func NewSymbolicMemory() *SymbolicMemory {
 
 		Aliasable:    make([]*Ref, 0),
 		NonAliasable: make([]*Ref, 0),
+
+		ArrayLengths: map[*Ref]uint{},
 	}
+}
+
+func (mem *SymbolicMemory) SetArrayLength(ref *Ref, length uint) {
+	mem.ArrayLengths[ref] = length
+}
+
+func (mem *SymbolicMemory) GetArrayLength(ref *Ref) *uint {
+	if length, ok := mem.ArrayLengths[ref]; ok {
+		return &length
+	}
+	return nil
 }
 
 func (mem *SymbolicMemory) nextId() Id {
@@ -56,17 +73,18 @@ func (mem *SymbolicMemory) nextId() Id {
 
 func (mem *SymbolicMemory) Allocate(tpe ExpressionType, aliasable bool) (res *Ref) {
 	switch tpe.ExprType {
-	case IntType, BoolType, StringType, FloatType, ArrayType:
+	case IntType, BoolType, StringType, FloatType, ArrayType, RefType:
 		res = NewRef(mem.nextId(), tpe)
 	case StructType:
-		if mem.StructSegments[*tpe.Name] == nil {
-			mem.StructSegments[*tpe.Name] = make(map[int]*SymbolicArray)
+		name := *tpe.Name
+		if mem.StructSegments[name] == nil {
+			mem.StructSegments[name] = make(map[int]*SymbolicArray)
 			for i, f := range *tpe.Fields {
-				arr := NewSymbolicArray(fmt.Sprintf("%s_%s", *tpe.Name, strconv.Itoa(i)), f)
-				mem.StructSegments[*tpe.Name][i] = arr
+				arr := NewSymbolicArray(fmt.Sprintf("%s_%s", name, strconv.Itoa(i)), f)
+				mem.StructSegments[name][i] = arr
 			}
 		}
-		res = NewStructRef(mem.nextId(), *tpe.Name)
+		res = NewStructRef(mem.nextId(), name)
 	default:
 		panic("not implemented")
 	}
@@ -110,15 +128,27 @@ func (mem *SymbolicMemory) ArrayElemRef(ref *Ref, elemIndex SymbolicExpression) 
 	if elemIndex == nil {
 		panic("ArrayElemRef: nil elemIndex")
 	}
+	if ref.RefType.Param == nil {
+		panic("ArrayElemRef: nil elem type")
+	}
 
-	switch ref.RefType.Param.ExprType {
+	addr := &BinaryOperation{
+		Left:     ref.Id,
+		Right:    elemIndex,
+		Operator: ADD,
+	}
+	elemType := *ref.RefType.Param
+
+	switch elemType.ExprType {
 	case IntType, BoolType, StringType, FloatType:
-		return NewRefFromExpr(NewBinaryOperation(ref.Id, elemIndex, ADD), *ref.RefType.Param)
-	case StructType:
-		return NewRefFromExpr(
-			mem.Segments[ArrayType].Select(NewBinaryOperation(ref.Id, elemIndex, ADD)),
-			ExpressionType{ExprType: StructType, Name: ref.RefType.Name},
-		)
+		return NewRefFromExpr(addr, elemType)
+	case StructType, ArrayType:
+		return NewRefFromExpr(mem.Segments[ArrayType].Select(addr), elemType)
+	case RefType:
+		if elemType.Param == nil {
+			panic("ArrayElemRef: ref element has nil target type")
+		}
+		return NewRefFromExpr(mem.Segments[ArrayType].Select(addr), *elemType.Param)
 	default:
 		panic("not implemented")
 	}
@@ -128,6 +158,18 @@ func (mem *SymbolicMemory) AssignValue(ref *Ref, value SymbolicExpression) {
 	switch ref.RefType.ExprType {
 	case IntType, BoolType, StringType, FloatType:
 		mem.Segments[ref.RefType.ExprType].Store(ref.Id, value)
+	case RefType:
+		if ref.RefType.Param == nil {
+			panic("AssignValue: ref slot has nil target type")
+		}
+		switch v := value.(type) {
+		case *Ref:
+			mem.Segments[IntType].Store(ref.Id, v.Id)
+		case *NilConstant:
+			mem.Segments[IntType].Store(ref.Id, NewIntConstant(0))
+		default:
+			panic("AssignValue: assigning non-ref into ref slot")
+		}
 
 	case StructType:
 		if ref.RefType.FieldIndex == nil {
@@ -157,6 +199,7 @@ func (mem *SymbolicMemory) AssignValue(ref *Ref, value SymbolicExpression) {
 			panic("AssignValue: struct field segment is nil")
 		}
 		fieldSegment.Store(ref.Id, value)
+	case ArrayType:
 	default:
 		panic("unknown ref type")
 	}
@@ -166,11 +209,18 @@ func (mem *SymbolicMemory) GetValue(ref *Ref) SymbolicExpression {
 	switch ref.RefType.ExprType {
 	case IntType, BoolType, StringType, FloatType:
 		return mem.Segments[ref.RefType.ExprType].Select(ref.Id)
+	case RefType:
+		if ref.RefType.Param == nil {
+			panic("GetValue: ref has nil target type")
+		}
+		return NewRefFromExpr(mem.Segments[IntType].Select(ref.Id), *ref.RefType.Param)
 	case StructType:
 		if ref.RefType.FieldIndex == nil {
 			panic("GetValue: can't read whole struct; take field addr and read field")
 		}
 		return mem.StructSegments[*ref.RefType.Name][*ref.RefType.FieldIndex].Select(ref.Id)
+	case ArrayType:
+		return ref
 	default:
 		panic("unknown base type")
 	}

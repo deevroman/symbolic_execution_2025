@@ -26,8 +26,8 @@ func TestIntPreventAliasingArray(t *testing.T) {
 	tr := translator.NewZ3Translator()
 	mem := memory.NewSymbolicMemory()
 
-	x := mem.Allocate(ArrayExpr(IntExpr()), false)
-	y := mem.Allocate(ArrayExpr(IntExpr()), false)
+	x := mem.Allocate(ArrayExpr(IntExpr(), 1), false)
+	y := mem.Allocate(ArrayExpr(IntExpr(), 1), false)
 
 	yElem := mem.ArrayElemRef(y, NewIntConstant(1))
 	mem.AssignValue(yElem, NewIntConstant(5))
@@ -55,8 +55,8 @@ func TestIntAliasingArray(t *testing.T) {
 	tr := translator.NewZ3Translator()
 	mem := memory.NewSymbolicMemory()
 
-	x := mem.Allocate(ArrayExpr(IntExpr()), true)
-	y := mem.Allocate(ArrayExpr(IntExpr()), true)
+	x := mem.Allocate(ArrayExpr(IntExpr(), 1), true)
+	y := mem.Allocate(ArrayExpr(IntExpr(), 1), true)
 
 	yElem := mem.ArrayElemRef(y, NewIntConstant(1))
 	mem.AssignValue(yElem, NewIntConstant(5))
