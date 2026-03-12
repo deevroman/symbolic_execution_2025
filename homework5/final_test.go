@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime"
 	. "symbolic-execution-course/internal"
 	. "symbolic-execution-course/internal/ssa"
 	"symbolic-execution-course/internal/translator"
@@ -53,6 +54,7 @@ func run(t *testing.T, functionName string, filepaths []string) {
 		t.Fatalf("Analysis failed: %v", err)
 	}
 	for i, interpreter := range result {
+		runtime.GC()
 		analyser.Z3Translator = translator.NewZ3Translator()
 		fmt.Printf("State №%d\n", i)
 		fmt.Print("PathCondition: ")
