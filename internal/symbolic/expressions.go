@@ -168,7 +168,7 @@ func (nc *NilConstant) String() string {
 
 // Accept реализует Visitor pattern
 func (nc *NilConstant) Accept(visitor Visitor) interface{} {
-	panic("not implemented")
+	return visitor.VisitNilConstant(nc)
 }
 
 // BinaryOperation представляет бинарную операцию

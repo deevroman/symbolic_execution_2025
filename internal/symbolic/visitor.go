@@ -7,6 +7,7 @@ type Visitor interface {
 	VisitBoolConstant(expr *BoolConstant) interface{}
 	VisitFloatConstant(expr *FloatConstant) interface{}
 	VisitStringConstant(expr *StringConstant) interface{}
+	VisitNilConstant(expr *NilConstant) interface{}
 	VisitUnaryOperation(expr *UnaryOperation) interface{}
 	VisitBinaryOperation(expr *BinaryOperation) interface{}
 	VisitLogicalOperation(expr *LogicalOperation) interface{}

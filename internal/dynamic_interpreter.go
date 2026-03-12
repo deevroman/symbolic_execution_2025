@@ -17,6 +17,7 @@ type Interpreter struct {
 	PathCondition     symbolic.SymbolicExpression
 	Heap              memory.Memory
 	Cache             map[ssa.Value]symbolic.SymbolicExpression
+	CallResults       map[ssa.Value][]symbolic.SymbolicExpression
 	Parameters        map[ssa.Value]*symbolic.Ref
 	Returns           []symbolic.SymbolicExpression
 	CurrentBlock      *ssa.BasicBlock
@@ -43,6 +44,7 @@ func NewInterpreter(analyser *Analyser, pathCond symbolic.SymbolicExpression) In
 		PathCondition:     pathCond,
 		Heap:              memory.NewSymbolicMemory(),
 		Cache:             make(map[ssa.Value]symbolic.SymbolicExpression),
+		CallResults:       make(map[ssa.Value][]symbolic.SymbolicExpression),
 		CurrentBlock:      nil,
 		PredBlock:         nil,
 		instrIndex:        0,
@@ -71,7 +73,7 @@ func (interpreter *Interpreter) interpretDynamically(element ssa.Instruction) []
 
 	switch i := element.(type) {
 	case *ssa.Alloc, *ssa.BinOp, *ssa.Convert,
-		*ssa.FieldAddr, *ssa.IndexAddr,
+		*ssa.Extract, *ssa.FieldAddr, *ssa.IndexAddr,
 		*ssa.MakeSlice, *ssa.Slice, *ssa.UnOp:
 		if interpreter.instrIndex+1 < len(interpreter.CurrentBlock.Instrs) {
 			it := *interpreter
@@ -159,6 +161,9 @@ func (interpreter *Interpreter) interpretDynamically(element ssa.Instruction) []
 			interpreter.CallStack = interpreter.CallStack[:len(interpreter.CallStack)-1]
 
 			if top.CallInstr != nil {
+				retsCopy := make([]symbolic.SymbolicExpression, len(rets))
+				copy(retsCopy, rets)
+				interpreter.CallResults[top.CallInstr] = retsCopy
 				if len(rets) == 0 {
 					interpreter.Cache[top.CallInstr] = symbolic.NewNilConstant()
 				} else {
@@ -209,7 +214,7 @@ func (interpreter *Interpreter) interpretDynamically(element ssa.Instruction) []
 			newIt.CurrentBlock = v.Blocks[0]
 			newIt.PredBlock = nil
 			newIt.instrIndex = 0
-			return []*Interpreter{interpreter}
+			return []*Interpreter{&newIt}
 		default:
 			return nextBlock(*interpreter)
 		}
@@ -391,11 +396,11 @@ func (interpreter *Interpreter) resolveExpression(value ssa.Value) symbolic.Symb
 				if ref, ok := arg.(*symbolic.Ref); ok {
 					length := interpreter.Heap.GetArrayLength(ref)
 					if length == nil {
-						return symbolic.NewSymbolicVariable("len_result", symbolic.IntExpr())
+						return symbolic.NewSymbolicVariable("len_result_"+arg.String(), symbolic.IntExpr())
 					}
 					return symbolic.NewIntConstant(int64(*length))
 				}
-				return symbolic.NewSymbolicVariable("len_result", symbolic.IntExpr())
+				return symbolic.NewSymbolicVariable("len_result_"+arg.String(), symbolic.IntExpr())
 			case "append":
 				return interpreter.resolveExpression(v.Call.Args[0])
 			case "println":
@@ -439,6 +444,49 @@ func (interpreter *Interpreter) resolveExpression(value ssa.Value) symbolic.Symb
 			interpreter.Parameters[v] = r
 			return interpreter.Heap.GetValue(r)
 		}
+	case *ssa.Extract:
+		if values, ok := interpreter.CallResults[v.Tuple]; ok {
+			if v.Index < 0 || v.Index >= len(values) {
+				panic(fmt.Sprintf("extract index out of range: idx=%d, values=%d", v.Index, len(values)))
+			}
+			interpreter.Cache[v] = values[v.Index]
+			return values[v.Index]
+		}
+		if v.Index == 0 {
+			first := interpreter.resolveExpression(v.Tuple)
+			interpreter.Cache[v] = first
+			return first
+		}
+		res := symbolic.NewSymbolicVariable("extract_"+v.String(), interpreter.toSymbolicType(v.Type()))
+		interpreter.Cache[v] = res
+		return res
+	case *ssa.Phi:
+		if cached, ok := interpreter.Cache[v]; ok {
+			return cached
+		}
+		if len(v.Edges) == 0 {
+			panic("phi has no edges")
+		}
+		edgeIndex := 0
+		if interpreter.PredBlock != nil {
+			found := false
+			for idx, p := range v.Block().Preds {
+				if p == interpreter.PredBlock {
+					edgeIndex = idx
+					found = true
+					break
+				}
+			}
+			if !found {
+				panic("phi pred not found in resolveExpression")
+			}
+		}
+		if edgeIndex < 0 || edgeIndex >= len(v.Edges) {
+			panic("phi edge index out of range")
+		}
+		res := interpreter.resolveExpression(v.Edges[edgeIndex])
+		interpreter.Cache[v] = res
+		return res
 	case *ssa.UnOp:
 		if v.Op != token.MUL {
 			return symbolic.NewUnaryOperation(interpreter.resolveExpression(v.X), tokenToUnaryOp(v.Op))
@@ -499,6 +547,9 @@ func (interpreter *Interpreter) resolveExpression(value ssa.Value) symbolic.Symb
 		default:
 			base := interpreter.resolveExpression(v.X)
 			if ref, ok := base.(*symbolic.Ref); ok {
+				if ref.RefType.ExprType == symbolic.StructType && ref.RefType.FieldIndex == nil {
+					return ref
+				}
 				return interpreter.Heap.GetValue(ref)
 			}
 			if p, ok := v.Type().Underlying().(*types.Pointer); ok {
@@ -545,8 +596,7 @@ func (interpreter *Interpreter) resolveExpression(value ssa.Value) symbolic.Symb
 	case *ssa.FieldAddr:
 		base := interpreter.resolveExpression(v.X)
 		if ref, ok := base.(*symbolic.Ref); ok {
-			ref.RefType.FieldIndex = &v.Field
-			return ref
+			return interpreter.Heap.FieldRef(ref, v.Field)
 		}
 		return interpreter.Heap.Allocate(interpreter.toSymbolicType(v.Type()), false)
 	default:
@@ -679,7 +729,14 @@ func (interpreter *Interpreter) clone() Interpreter {
 		newIt.Parameters[k] = v
 	}
 
-	newIt.Returns = make([]symbolic.SymbolicExpression, 0, len(interpreter.Returns))
+	newIt.CallResults = make(map[ssa.Value][]symbolic.SymbolicExpression, len(interpreter.CallResults))
+	for k, values := range interpreter.CallResults {
+		cp := make([]symbolic.SymbolicExpression, len(values))
+		copy(cp, values)
+		newIt.CallResults[k] = cp
+	}
+
+	newIt.Returns = make([]symbolic.SymbolicExpression, len(interpreter.Returns))
 	for k, v := range interpreter.Returns {
 		newIt.Returns[k] = v
 	}

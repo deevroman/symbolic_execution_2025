@@ -146,6 +146,12 @@ func (zt *Z3Translator) VisitFloatConstant(expr *symbolic.FloatConstant) interfa
 	return v
 }
 
+func (zt *Z3Translator) VisitNilConstant(expr *symbolic.NilConstant) interface{} {
+	v := zt.ctx.FromBigInt(big.NewInt(0), zt.ctx.BVSort(32))
+	zt.vars[expr.String()] = v
+	return v
+}
+
 // VisitBinaryOperation транслирует бинарную операцию в Z3
 func (zt *Z3Translator) VisitBinaryOperation(expr *symbolic.BinaryOperation) interface{} {
 	// 1. Транслировать левый и правый операнды

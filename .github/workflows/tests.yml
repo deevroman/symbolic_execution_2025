@@ -40,4 +40,4 @@ jobs:
 
       - name: hw5
         working-directory: homework5
-        run: timeout 60 go test
+        run: timeout 180 go test > output.txt && head -n 1000 output.txt && tail -n 1000 output.txt

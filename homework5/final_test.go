@@ -52,8 +52,10 @@ func run(t *testing.T, functionName string, filepaths []string) {
 	if err != nil {
 		t.Fatalf("Analysis failed: %v", err)
 	}
-	for _, interpreter := range result {
-		fmt.Print("PathCondition:")
+	for i, interpreter := range result {
+		analyser.Z3Translator = translator.NewZ3Translator()
+		fmt.Printf("State №%d\n", i)
+		fmt.Print("PathCondition: ")
 		fmt.Println(interpreter.PathCondition)
 		analyser.Z3Translator.Assert(interpreter.PathCondition)
 		cs := interpreter.Heap.GetAliasingConstraints()
